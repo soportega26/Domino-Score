@@ -1,0 +1,114 @@
+class MatchModel {
+  final String id;
+  List<String> players;
+  List<int> scores;
+  List<List<int>> history;
+  int maxPoints;
+
+  String? winnerName;
+  int? winnerPoints;
+  DateTime? winnerDate;
+
+  MatchModel({
+    required this.id,
+    required this.players,
+    required this.scores,
+    required this.history,
+    required this.maxPoints,
+    this.winnerName,
+    this.winnerPoints,
+    this.winnerDate,
+  });
+
+  // ===========================================================================
+  // EVALUACIÓN ESTRICTA DE GANADOR Y ESTADO DE LA PARTIDA
+  // ===========================================================================
+
+  /// Una partida SOLO tiene ganador si un jugador ALCANZÓ O SUPERÓ la meta (maxPoints).
+  /// Esto previene que datos guardados erróneos bloqueen la mesa.
+  bool get hasWinner {
+    if (scores.isEmpty) return false;
+    return scores.any((score) => score >= maxPoints);
+  }
+
+  /// La partida solo finaliza si hay un ganador real según las puntuaciones
+  bool get estaFinalizado => hasWinner;
+
+  /// Índice del jugador que alcanzó o superó la meta (-1 si ninguno)
+  int get _winnerIndex {
+    if (scores.isEmpty) return -1;
+    return scores.indexWhere((score) => score >= maxPoints);
+  }
+
+  /// Nombre del ganador calculado directamente desde las puntuaciones
+  String get computedWinnerName {
+    if (_winnerIndex != -1) return players[_winnerIndex];
+    if (winnerName != null && winnerName!.isNotEmpty) return winnerName!;
+    return '';
+  }
+
+  /// Puntos del ganador calculados directamente desde las puntuaciones
+  int get computedWinnerPoints {
+    if (_winnerIndex != -1) return scores[_winnerIndex];
+    if (winnerPoints != null && winnerPoints! > 0) return winnerPoints!;
+    return 0;
+  }
+
+  /// Texto para el líder actual
+  String get leaderText {
+    if (scores.isEmpty) return 'Sin datos';
+
+    int maxScore = -1;
+    int leaderIndex = -1;
+    bool isTie = false;
+
+    for (int i = 0; i < scores.length; i++) {
+      if (scores[i] > maxScore) {
+        maxScore = scores[i];
+        leaderIndex = i;
+        isTie = false;
+      } else if (scores[i] == maxScore && maxScore > 0) {
+        isTie = true;
+      }
+    }
+
+    if (maxScore <= 0) return 'Empate (0 pts)';
+    if (isTie) return 'Empate en primer lugar ($maxScore pts)';
+
+    return '${players[leaderIndex]} • $maxScore pts';
+  }
+
+  // ===========================================================================
+  // SERIALIZACIÓN
+  // ===========================================================================
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'players': players,
+      'scores': scores,
+      'history': history,
+      'maxPoints': maxPoints,
+      'winnerName': winnerName,
+      'winnerPoints': winnerPoints,
+      'winnerDate': winnerDate?.toIso8601String(),
+    };
+  }
+
+  factory MatchModel.fromJson(Map<String, dynamic> json) {
+    return MatchModel(
+      id: json['id'] as String? ?? '',
+      players: List<String>.from(json['players'] ?? []),
+      scores: List<int>.from(json['scores'] ?? []),
+      history: (json['history'] as List? ?? [])
+          .map((item) => List<int>.from(item ?? []))
+          .toList(),
+      maxPoints: json['maxPoints'] as int? ?? 200,
+      winnerName: json['winnerName'] as String?,
+      winnerPoints: json['winnerPoints'] as int?,
+      winnerDate: json['winnerDate'] != null
+          ? DateTime.tryParse(json['winnerDate'].toString())
+          : null,
+    );
+  }
+}
